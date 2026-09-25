@@ -16,6 +16,8 @@ import os
 import subprocess
 import pathlib
 import shutil
+import tempfile
+import argparse
 
 XFER_SIZE = 4
 
@@ -871,35 +873,29 @@ def reduce(s, prologue):
 def main():
     global asm
 
-    movcc = shutil.which("movcc")
+    parser = argparse.ArgumentParser()
 
-    if movcc is None:
-        print("Reduction requires installing the M/o/Vfuscator.")
-        print("")
-        print("git clone https://github.com/xoreaxeaxeax/movfuscator")
-        print("cd movfuscator")
-        print("./build.sh")
-        print("sudo ./install.sh")
-        return
+    parser.add_argument("source", help="Source file(s) to compile", nargs='+', type=pathlib.Path)
+    parser.add_argument("-o", "--output", help="Output executable file", default="a.out", type=pathlib.Path)
+    parser.add_argument("-b", "--base", help="Path to movfuscator (https://github.com/xoreaxeaxeax/movfuscator) build directory", required=True, type=pathlib.Path)
+    parser.add_argument("-l,", "--linker-args", help="Linker Arguments", nargs='*')
 
-    movcc_path = pathlib.Path(movcc).resolve(strict=True)
+    args = parser.parse_args()
 
-    mov_dir = movcc_path.parent
-
-    c_file=sys.argv[1]
-    e_file=os.path.splitext(c_file)[0]
+    e_file="a.out"
     s_file=e_file+".s"
-    o_file=e_file+".o"
-    linker_args=sys.argv[2:]
 
     print("compiling...")
     subprocess.check_call([
-        movcc_path,
-        c_file,
+        args.base / "movcc",
+        # Include all source files
+        *args.source,
+        # Do not assemble. Only compile (leave assembly for us)
         "-S",
         "-Wf--crt0",
         "-Wf--no-mov-loop",
         "-Wf--no-mov-extern",
+        # Quiet output
         "-Wf--q",
         "-o", s_file
     ])
@@ -947,35 +943,37 @@ def main():
     s_files=break_write(s_file, asm)
     sys.stdout.write("\n")
 
-    # assemble
-    o_files = []
-    sys.stdout.write("\tassemble... ")
-    for p, l in enumerate(s_files):
-        o = "%s%03d" % (o_file, p)
-        o_files.append(o)
-        subprocess.check_call(["as", "--32", l, "-o", o])
-    sys.stdout.write("\n")
+    with tempfile.TemporaryDirectory() as build_dir:
+        build_path = pathlib.Path(build_dir)
 
-    # link
-    sys.stdout.write("\tlink... ")
-    sys.stdout.flush()
-    subprocess.check_call([
-        "ld",
-        "-melf_i386",
-        "-dynamic-linker", "/lib/ld-linux.so.2",
-        "-L", "/usr/lib32",
-        "-L", mov_dir,
-        "-L", mov_dir / "gcc" / "32",
-        "-lgcc",
-        "-lc",
-        "-lm",
-        "-s",
-        mov_dir / "crtd.o",
-        *linker_args,
-        *o_files,
-        "-o", e_file
-    ])
-    sys.stdout.write("\n")
+        # assemble
+        o_files = []
+        print("\tassemble... ")
+        for index, file in enumerate(s_files):
+            object_file = build_path / f"tmp{index:03d}.o"
+            o_files.append(object_file)
+            subprocess.check_call(["as", "--32", file, "-o", object_file])
+
+        # link
+        sys.stdout.write("\tlink... ")
+        sys.stdout.flush()
+        subprocess.check_call([
+            "ld",
+            "-melf_i386",
+            "-dynamic-linker", "/lib/ld-linux.so.2",
+            "-L", "/usr/lib32",
+            "-L", args.base,
+            "-L", args.base / "gcc" / "32",
+            "-lgcc",
+            "-lc",
+            "-lm",
+            "-s",
+            args.base / "crtd.o",
+            *(args.linker_args if args.linker_args is not None else []),
+            *o_files,
+            "-o", args.output
+        ])
+        sys.stdout.write("\n")
 
     print("...done ")
 
