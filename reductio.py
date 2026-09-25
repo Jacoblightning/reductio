@@ -59,25 +59,6 @@ def decompose(term):
                             raise Exception 
     return (offset, base, index, scale)
 
-BAR_LENGTH = 50
-BAR_REFRESH = .001 # .001
-def progress(p, l):
-    if l < 1:
-        l = 1
-    if p / float(l) > progress.last + BAR_REFRESH or p == l:
-        progress.last = p / float(l)
-        sys.stdout.write(
-                " [%s%s] %6.1f%%" % 
-                    ("-" * (p * BAR_LENGTH / l),
-                     " " * (BAR_LENGTH - p * BAR_LENGTH / l),
-                     (progress.last * 100))
-                    )
-        sys.stdout.write("\b" * (BAR_LENGTH + 3 + 8))
-        sys.stdout.flush()
-    if p == l:
-        progress.last = 0
-progress.last = 0
-
 def load(s):
     with open(s) as f:
         asm = f.readlines()
@@ -95,7 +76,6 @@ def break_write(s, asm):
         with open("%s%03d" % (s, i), 'w') as f:
             f.write(".data\n") # super-hack - as will assume .text
             for p, l in enumerate(asm[c:c+MAX_ASM_LINES]):
-                progress(c, len(asm)-1)
                 if p != 0 and ".balign" in l:
                     # another hack.  this one was frustrating and cost hours
                     # to track down.  the gas .align directive pads the
@@ -123,7 +103,6 @@ def break_write(s, asm):
 def write(s, asm):
     with open(s, 'w') as f:
         for p, l in enumerate(asm):
-            progress(p, len(asm)-1)
             f.write(l)
 
 # pass 0:
@@ -133,7 +112,6 @@ def remove_prologue(asm):
     prologue = []
     found_prologue = False
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if "master_loop" in l:
             found_prologue = True
         if found_prologue:
@@ -153,7 +131,6 @@ def pass_1(asm):
     pasm = []
     constants = set()
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if l.startswith("mov") and "<LCI>" not in l:
             pasm.append("# pass 1 (constants) > " + l)
 
@@ -196,7 +173,6 @@ def pass_2(asm):
     pasm.append(".section .text\n")
 
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if l.startswith("mov") and "<LCI>" not in l:
             pasm.append("# pass 2 (r2r) > " + l)
 
@@ -257,7 +233,6 @@ def pass_3(asm):
         pasm.append(".r_c%d: .byte 0\n" % i)
     pasm.append("# end shuffle space\n")
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         pasm.append(l)
     pasm.append("# section padding\n")
     pasm.append(".section .data\n")
@@ -275,7 +250,6 @@ def pass_3(asm):
 def pass_4(asm):
     pasm=[]
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if l.startswith("mov") and "<LCI>" not in l:
             pasm.append("# pass 4 (32b) > " + l)
 
@@ -501,7 +475,6 @@ def pass_5(asm):
     pasm.append(".section .text\n")
 
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if l.startswith("mov") and "<LCI>" not in l:
             pasm.append("# pass 5 (risc) > " + l)
 
@@ -619,7 +592,6 @@ def pass_6(asm):
     last_write = False
 
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if l.startswith("mov") and "<LCI>" not in l:
             pasm.append("# pass 6 (alternate) > " + l)
 
@@ -711,7 +683,6 @@ def reduce(s, prologue):
     last_branch_index = -1
 
     for p, l in enumerate(asm):
-        progress(p, len(asm)-1)
         if l.startswith("mov") and "<LCI>" not in l:
             pasm.append("#S> " + l)
             match = re.search(r'^movl[^\s]*\s+(.*)\s*,\s*([^#]*).*\n$', l)
@@ -883,7 +854,6 @@ def reduce(s, prologue):
     pasm.append(".operands:\n")
 
     for p, l in enumerate(operands):
-        progress(p, len(operands)-1)
         if l.startswith("#"):
             pasm.append(l + "\n")
         elif l.startswith(".glob"):
@@ -973,7 +943,6 @@ sys.stdout.write("\n")
 o_files = []
 sys.stdout.write("\tassemble... ")
 for p, l in enumerate(s_files):
-    progress(p, len(s_files)-1)
     o = "%s%03d" % (o_file, p)
     o_files.append(o)
     command="as --32 %s -o %s" % (l, o)
