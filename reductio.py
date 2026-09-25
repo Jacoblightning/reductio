@@ -24,44 +24,23 @@ XFER_SIZE = 4
 def ismem(term):
     return "(" in term or "%" not in term
 
-def compose(offset, base, index, scale):
-    if not base and not index and not scale:
-        return "(%s)" % offset
-    elif not index and not scale:
-        return "%s(%s)" % (offset, base)
-    elif not scale:
-        return "%s(%s,%s,1)" % (offset, base, index)
-    else:
-        return "%s(%s,%s,%s)" % (offset, base, index, scale)
+offset_only_re = re.compile(r'^\((?P<offset>[^)]*)\)\s*$')
+full_term_re   = re.compile(r'^(?P<offset>[^(]*)\((?P<base>%[^),]+)?(?:,(?P<index>%[^),]+)(?:,(?P<scale>[^),]+))?)?\)$')
 
-def decompose(term):
+def decompose(term: str) -> tuple[str, str, str, str]:
     offset = base = index = scale = ""
-    r = re.compile(r'(.*)\((%.*),(%.*),(.*)\)')
-    if r.match(term):
-        (offset,base,index,scale) = r.search(term).groups()
-    else:
-        r = re.compile(r'(.*)\(,(%.*),(.*)\)')
-        if r.match(term):
-            (offset,index,scale) = r.search(term).groups()
-        else:
-            r = re.compile(r'(.*)\((%.*),(%.*)\)') 
-            if r.match(term):
-                (offset,base,index) = r.search(term).groups()
-            else:
-                r = re.compile(r'(.*)\((%.*)\)') 
-                if r.match(term):
-                    (offset,base) = r.search(term).groups()
-                else:
-                    r = re.compile(r'\((.*)\)') 
-                    if r.match(term):
-                        (offset,) = r.search(term).groups()
-                    else:
-                        r = re.compile(r'(.*)') 
-                        if r.match(term):
-                            (offset,) = r.search(term).groups()
-                        else:
-                            raise Exception 
-    return (offset, base, index, scale)
+
+    re_match = full_term_re.fullmatch(term)
+
+    if re_match:
+        return tuple(("" if i is None else i) for i in re_match.groups())
+
+    re_offset_match = offset_only_re.fullmatch(term)
+
+    if re_offset_match:
+        return re_offset_match["offset"], "", "", ""
+
+    return term, "", "", ""
 
 # aes becomes a 2gb file.  gnu assembler doesn't like that.
 # break it into pieces. 
