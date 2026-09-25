@@ -867,110 +867,117 @@ def reduce(s, prologue):
 
     return pasm
 
-movcc = shutil.which("movcc")
 
-if movcc is None:
-    print("Reduction requires installing the M/o/Vfuscator.")
-    print("")
-    print("git clone https://github.com/xoreaxeaxeax/movfuscator")
-    print("cd movfuscator")
-    print("./build.sh")
-    print("sudo ./install.sh")
-    exit(1)
+def main():
+    global asm
 
-movcc_path = pathlib.Path(movcc).resolve(strict=True)
+    movcc = shutil.which("movcc")
 
-mov_dir = movcc_path.parent
+    if movcc is None:
+        print("Reduction requires installing the M/o/Vfuscator.")
+        print("")
+        print("git clone https://github.com/xoreaxeaxeax/movfuscator")
+        print("cd movfuscator")
+        print("./build.sh")
+        print("sudo ./install.sh")
+        return
 
-c_file=sys.argv[1]
-e_file=os.path.splitext(c_file)[0]
-s_file=e_file+".s"
-o_file=e_file+".o"
-linker_args=sys.argv[2:]
+    movcc_path = pathlib.Path(movcc).resolve(strict=True)
 
-print("compiling...")
-subprocess.check_call([
-    movcc_path,
-    c_file,
-    "-S",
-    "-Wf--crt0",
-    "-Wf--no-mov-loop",
-    "-Wf--no-mov-extern",
-    "-Wf--q",
-    "-o", s_file
-])
-print("...done")
+    mov_dir = movcc_path.parent
 
-# reduce
-print("reducing... ")
+    c_file=sys.argv[1]
+    e_file=os.path.splitext(c_file)[0]
+    s_file=e_file+".s"
+    o_file=e_file+".o"
+    linker_args=sys.argv[2:]
 
-print("\tloading... ")
-asm=load(s_file)
+    print("compiling...")
+    subprocess.check_call([
+        movcc_path,
+        c_file,
+        "-S",
+        "-Wf--crt0",
+        "-Wf--no-mov-loop",
+        "-Wf--no-mov-extern",
+        "-Wf--q",
+        "-o", s_file
+    ])
+    print("...done")
 
-sys.stdout.write("\tprologue... ")
-[asm,prologue]=remove_prologue(asm)
-sys.stdout.write("\n")
+    # reduce
+    print("reducing... ")
 
-sys.stdout.write("\tpass 1...   ")
-asm=pass_1(asm)
-sys.stdout.write("\n")
+    print("\tloading... ")
+    asm=load(s_file)
 
-sys.stdout.write("\tpass 2...   ")
-asm=pass_2(asm)
-sys.stdout.write("\n")
+    sys.stdout.write("\tprologue... ")
+    [asm,prologue]=remove_prologue(asm)
+    sys.stdout.write("\n")
 
-sys.stdout.write("\tpass 3...   ")
-asm=pass_3(asm)
-sys.stdout.write("\n")
+    sys.stdout.write("\tpass 1...   ")
+    asm=pass_1(asm)
+    sys.stdout.write("\n")
 
-sys.stdout.write("\tpass 4...   ")
-asm=pass_4(asm)
-sys.stdout.write("\n")
+    sys.stdout.write("\tpass 2...   ")
+    asm=pass_2(asm)
+    sys.stdout.write("\n")
 
-sys.stdout.write("\tpass 5...   ")
-asm=pass_5(asm)
-sys.stdout.write("\n")
+    sys.stdout.write("\tpass 3...   ")
+    asm=pass_3(asm)
+    sys.stdout.write("\n")
 
-sys.stdout.write("\tpass 6...   ")
-asm=pass_6(asm)
-sys.stdout.write("\n")
+    sys.stdout.write("\tpass 4...   ")
+    asm=pass_4(asm)
+    sys.stdout.write("\n")
 
-sys.stdout.write("\treduce...   ")
-asm=reduce(asm, prologue)
-sys.stdout.write("\n")
+    sys.stdout.write("\tpass 5...   ")
+    asm=pass_5(asm)
+    sys.stdout.write("\n")
 
-sys.stdout.write("\twrite...    ")
-s_files=break_write(s_file, asm)
-sys.stdout.write("\n")
+    sys.stdout.write("\tpass 6...   ")
+    asm=pass_6(asm)
+    sys.stdout.write("\n")
 
-# assemble
-o_files = []
-sys.stdout.write("\tassemble... ")
-for p, l in enumerate(s_files):
-    o = "%s%03d" % (o_file, p)
-    o_files.append(o)
-    subprocess.check_call(["as", "--32", l, "-o", o])
-sys.stdout.write("\n")
+    sys.stdout.write("\treduce...   ")
+    asm=reduce(asm, prologue)
+    sys.stdout.write("\n")
 
-# link
-sys.stdout.write("\tlink... ")
-sys.stdout.flush()
-subprocess.check_call([
-    "ld",
-    "-melf_i386",
-    "-dynamic-linker", "/lib/ld-linux.so.2",
-    "-L", "/usr/lib32",
-    "-L", mov_dir,
-    "-L", mov_dir / "gcc" / "32",
-    "-lgcc",
-    "-lc",
-    "-lm",
-    "-s",
-    mov_dir / "crtd.o",
-    *linker_args,
-    *o_files,
-    "-o", e_file
-])
-sys.stdout.write("\n")
+    sys.stdout.write("\twrite...    ")
+    s_files=break_write(s_file, asm)
+    sys.stdout.write("\n")
 
-print("...done ")
+    # assemble
+    o_files = []
+    sys.stdout.write("\tassemble... ")
+    for p, l in enumerate(s_files):
+        o = "%s%03d" % (o_file, p)
+        o_files.append(o)
+        subprocess.check_call(["as", "--32", l, "-o", o])
+    sys.stdout.write("\n")
+
+    # link
+    sys.stdout.write("\tlink... ")
+    sys.stdout.flush()
+    subprocess.check_call([
+        "ld",
+        "-melf_i386",
+        "-dynamic-linker", "/lib/ld-linux.so.2",
+        "-L", "/usr/lib32",
+        "-L", mov_dir,
+        "-L", mov_dir / "gcc" / "32",
+        "-lgcc",
+        "-lc",
+        "-lm",
+        "-s",
+        mov_dir / "crtd.o",
+        *linker_args,
+        *o_files,
+        "-o", e_file
+    ])
+    sys.stdout.write("\n")
+
+    print("...done ")
+
+if __name__ == "__main__":
+    main()
