@@ -205,30 +205,30 @@ def pass_3(asm):
     pasm=[]
     pasm.append("# section padding\n")
     pasm.append(".section .data\n")
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".long 0\n")
     pasm.append(".section .bss\n")
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".long 0\n")
     pasm.append("# end padding\n")
     pasm.append("# mov32 shuffle space\n")
     pasm.append(".section .data\n")
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".global .s_a%d\n" % i) # split global
         pasm.append(".s_a%d: .byte 0\n" % i)
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".global .s_b%d\n" % i) # split global
         pasm.append(".s_b%d: .byte 0\n" % i)
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".global .s_c%d\n" % i) # split global
         pasm.append(".s_c%d: .byte 0\n" % i)
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".global .r_a%d\n" % i) # split global
         pasm.append(".r_a%d: .byte 0\n" % i)
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".global .r_b%d\n" % i) # split global
         pasm.append(".r_b%d: .byte 0\n" % i)
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".global .r_c%d\n" % i) # split global
         pasm.append(".r_c%d: .byte 0\n" % i)
     pasm.append("# end shuffle space\n")
@@ -236,10 +236,10 @@ def pass_3(asm):
         pasm.append(l)
     pasm.append("# section padding\n")
     pasm.append(".section .data\n")
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".long 0\n")
     pasm.append(".section .bss\n")
-    for i in xrange(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)/4):
         pasm.append(".long 0\n")
     pasm.append("# end padding\n")
 
@@ -428,16 +428,16 @@ def pass_5(asm):
     for k in (0,1,2,3):
         pasm.append(".global .scale%dl\n" % (2**k)) # split global
         pasm.append(".scale%dl:\n" % (2**k))
-        for i in xrange(0,256):
+        for i in range(0,256):
             pasm.append(".byte 0x%02x\n" % ((i<<k)&0xff))
         pasm.append(".global .scale%dh\n" % (2**k)) # split global
         pasm.append(".scale%dh:\n" % (2**k))
-        for i in xrange(0,256):
+        for i in range(0,256):
             pasm.append(".byte 0x%02x\n" % (((i<<k)&0xff00)>>8))
 
     pasm.append(".global .riscor\n") # split global
     pasm.append(".riscor:\n")
-    for i in xrange(0,0x10000):
+    for i in range(0,0x10000):
         pasm.append(".byte 0x%02x\n" % ((i&0xff)|((i&0xff00)>>8)))
 
     pasm.append(".long 0\n")
@@ -463,12 +463,12 @@ def pass_5(asm):
 
     pasm.append(".global .riscaddl\n") # split global
     pasm.append(".riscaddl:\n")
-    for i in xrange(0,0x20000):
+    for i in range(0,0x20000):
         pasm.append(".byte 0x%02x\n" % \
                 (((i&0xff)+((i&0xff00)>>8)+((i&0x10000)>>16))&0xff))
     pasm.append(".global .riscaddh\n") # split global
     pasm.append(".riscaddh:\n")
-    for i in xrange(0,0x20000):
+    for i in range(0,0x20000):
         pasm.append(".byte 0x%02x\n" % \
                 (((i&0xff)+((i&0xff00)>>8)+((i&0x10000)>>16))>>8))
 
@@ -866,12 +866,12 @@ def reduce(s, prologue):
     return pasm
 
 if subprocess.call("type movcc", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) != 0:
-    print "Reduction requires installing the M/o/Vfuscator."
-    print ""
-    print "git clone https://github.com/xoreaxeaxeax/movfuscator"
-    print "cd movfuscator"
-    print "./build.sh"
-    print "sudo ./install.sh"
+    print("Reduction requires installing the M/o/Vfuscator.")
+    print("")
+    print("git clone https://github.com/xoreaxeaxeax/movfuscator")
+    print("cd movfuscator")
+    print("./build.sh")
+    print("sudo ./install.sh")
     exit(1)
 
 mov_install=subprocess.Popen("readlink -f `which movcc`", shell=True, stdout=subprocess.PIPE).communicate()[0]
@@ -883,7 +883,7 @@ s_file=e_file+".s"
 o_file=e_file+".o"
 linker_args=sys.argv[2:]
 
-print "compiling..."
+print("compiling...")
 command=\
     "movcc "\
     "%s "\
@@ -895,12 +895,12 @@ command=\
     "-o %s"\
     % (c_file, s_file)
 os.system(command)
-print "...done"
+print("...done")
 
 # reduce
-print "reducing... "
+print("reducing... ")
 
-print "\tloading... "
+print("\tloading... ")
 asm=load(s_file)
 
 sys.stdout.write("\tprologue... ")
@@ -968,4 +968,4 @@ command=\
 os.system(command)
 sys.stdout.write("\n")
 
-print "...done "
+print("...done ")
