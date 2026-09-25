@@ -146,7 +146,7 @@ def pass_1(asm):
 
                 # have to jump through some hoops due to as and ld limitations
                 # on absolutes 
-                c = hashlib.md5(source[1:]).hexdigest()
+                c = hashlib.md5(source[1:].encode()).hexdigest()
                 pasm.append(".section .data\n")
                 #pasm.append(".ifndef .C%s\n" % c)
                 if source[1:] not in constants:
@@ -205,30 +205,30 @@ def pass_3(asm):
     pasm=[]
     pasm.append("# section padding\n")
     pasm.append(".section .data\n")
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".long 0\n")
     pasm.append(".section .bss\n")
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".long 0\n")
     pasm.append("# end padding\n")
     pasm.append("# mov32 shuffle space\n")
     pasm.append(".section .data\n")
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".global .s_a%d\n" % i) # split global
         pasm.append(".s_a%d: .byte 0\n" % i)
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".global .s_b%d\n" % i) # split global
         pasm.append(".s_b%d: .byte 0\n" % i)
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".global .s_c%d\n" % i) # split global
         pasm.append(".s_c%d: .byte 0\n" % i)
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".global .r_a%d\n" % i) # split global
         pasm.append(".r_a%d: .byte 0\n" % i)
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".global .r_b%d\n" % i) # split global
         pasm.append(".r_b%d: .byte 0\n" % i)
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".global .r_c%d\n" % i) # split global
         pasm.append(".r_c%d: .byte 0\n" % i)
     pasm.append("# end shuffle space\n")
@@ -236,10 +236,10 @@ def pass_3(asm):
         pasm.append(l)
     pasm.append("# section padding\n")
     pasm.append(".section .data\n")
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".long 0\n")
     pasm.append(".section .bss\n")
-    for i in range(0,(XFER_SIZE+1)/4):
+    for i in range(0,(XFER_SIZE+1)//4):
         pasm.append(".long 0\n")
     pasm.append("# end padding\n")
 
