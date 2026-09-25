@@ -14,6 +14,8 @@ import hashlib
 import re
 import os
 import subprocess
+import pathlib
+import shutil
 
 XFER_SIZE = 4
 
@@ -865,7 +867,9 @@ def reduce(s, prologue):
 
     return pasm
 
-if subprocess.call("type movcc", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) != 0:
+movcc = shutil.which("movcc")
+
+if movcc is None:
     print("Reduction requires installing the M/o/Vfuscator.")
     print("")
     print("git clone https://github.com/xoreaxeaxeax/movfuscator")
@@ -874,8 +878,9 @@ if subprocess.call("type movcc", shell=True, stdout=subprocess.PIPE, stderr=subp
     print("sudo ./install.sh")
     exit(1)
 
-mov_install=subprocess.Popen("readlink -f `which movcc`", shell=True, stdout=subprocess.PIPE).communicate()[0]
-mov_dir=os.path.dirname(mov_install)
+movcc_path = pathlib.Path(movcc).resolve(strict=True)
+
+mov_dir = movcc_path.parent
 
 c_file=sys.argv[1]
 e_file=os.path.splitext(c_file)[0]
@@ -884,17 +889,16 @@ o_file=e_file+".o"
 linker_args=sys.argv[2:]
 
 print("compiling...")
-command=\
-    "movcc "\
-    "%s "\
-    "-S "\
-    "-Wf--crt0 "\
-    "-Wf--no-mov-loop "\
-    "-Wf--no-mov-extern "\
-    "-Wf--q "\
-    "-o %s"\
-    % (c_file, s_file)
-os.system(command)
+subprocess.check_call([
+    movcc_path,
+    c_file,
+    "-S",
+    "-Wf--crt0",
+    "-Wf--no-mov-loop",
+    "-Wf--no-mov-extern",
+    "-Wf--q",
+    "-o", s_file
+])
 print("...done")
 
 # reduce
@@ -945,27 +949,28 @@ sys.stdout.write("\tassemble... ")
 for p, l in enumerate(s_files):
     o = "%s%03d" % (o_file, p)
     o_files.append(o)
-    command="as --32 %s -o %s" % (l, o)
-    os.system(command)
+    subprocess.check_call(["as", "--32", l, "-o", o])
 sys.stdout.write("\n")
 
 # link
 sys.stdout.write("\tlink... ")
 sys.stdout.flush()
-command=\
-    "ld -melf_i386 -dynamic-linker /lib/ld-linux.so.2 "\
-    "-L %s/ "\
-    "-L %s/gcc/32/ "\
-    "-lgcc "\
-    "-lc "\
-    "-lm "\
-    "-s "\
-    "%s/crtd.o "\
-    "%s "\
-    "%s "\
-    "-o %s"\
-    % (mov_dir, mov_dir, mov_dir, " ".join(linker_args), " ".join(o_files), e_file)
-os.system(command)
+subprocess.check_call([
+    "ld",
+    "-melf_i386",
+    "-dynamic-linker", "/lib/ld-linux.so.2",
+    "-L", "/usr/lib32",
+    "-L", mov_dir,
+    "-L", mov_dir / "gcc" / "32",
+    "-lgcc",
+    "-lc",
+    "-lm",
+    "-s",
+    mov_dir / "crtd.o",
+    *linker_args,
+    *o_files,
+    "-o", e_file
+])
 sys.stdout.write("\n")
 
 print("...done ")
