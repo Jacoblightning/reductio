@@ -1,3 +1,9 @@
+## _reductio_ [ad absurdum]. A modern fork.
+
+This is a fork of the original reductio porting it to python3, adding optimizations and a proper cli.
+
+Original readme follows below:
+
 ## _reductio_ [ad absurdum]
 
 an exploration of code homeomorphism  
