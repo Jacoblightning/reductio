@@ -128,7 +128,7 @@ def remove_prologue(asm):
 
 # pass 1:
 # replace all constant references with memory references instead
-def pass_1(asm):
+def pass_1(asm: list[str]) -> list[str]:
     pasm = []
     constants = set()
     for p, l in enumerate(asm):
@@ -166,7 +166,7 @@ def pass_1(asm):
 
 # pass 2:
 # replace all register to register transfers
-def pass_2(asm):
+def pass_2(asm: list[str]) -> list[str]:
     pasm=[]
     pasm.append(".section .data\n")
     pasm.append(".global .r2r\n") # split global
@@ -202,7 +202,7 @@ def pass_2(asm):
 
 # pass 3:
 # pad .data and .bss sections to allow data accesses to extend past boundaries
-def pass_3(asm):
+def pass_3(asm: list[str]) -> list[str]:
     pasm=[]
     pasm.append("# section padding\n")
     pasm.append(".section .data\n")
@@ -248,7 +248,7 @@ def pass_3(asm):
 
 # pass 4:
 # convert all transfers to 32 bits
-def pass_4(asm):
+def pass_4(asm: list[str]) -> list[str]:
     pasm=[]
     for p, l in enumerate(asm):
         if l.startswith("mov") and "<LCI>" not in l:
@@ -382,7 +382,7 @@ def pass_4(asm):
 # e.g.: [eax+4*ebx+12345678] -> [ecx+12345678]
 # This may not be the actual desired addressing mode, but it is much easier to
 # translate to other modes after initially converted to base/offset
-def pass_5(asm):
+def pass_5(asm: list[str]) -> list[str]:
     pasm=[]
     pasm.append(".section .data\n")
     pasm.append(".global .eax\n") # split global
@@ -584,7 +584,7 @@ def pass_5(asm):
 
 # pass 6:
 # - alternate reads and writes, standardize instruction format
-def pass_6(asm):
+def pass_6(asm: list[str]) -> list[str]:
     pasm=[]
     pasm.append(".section .data\n")
     pasm.append(".global .scratch_rw\n") # split global
@@ -629,7 +629,7 @@ def pass_6(asm):
 
     return pasm
 
-def reduce(s, prologue):
+def reduce(asm: list[str], prologue: list[str]) -> list[str]:
     pasm = []
 
     # (hack) keep data starting locations consistent to ensure identical
@@ -867,9 +867,7 @@ def reduce(s, prologue):
     return pasm
 
 
-def main():
-    global asm
-
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("source", help="Source file(s) to compile", nargs='+', type=pathlib.Path)
@@ -880,7 +878,7 @@ def main():
     args = parser.parse_args()
 
     print("compiling...")
-    assembly_source = subprocess.check_output([
+    assembly_source: list[str] = subprocess.check_output([
         args.base / "movcc",
         # Include all source files
         *args.source,
@@ -899,7 +897,10 @@ def main():
     print("reducing... ")
 
     print("\tprologue... ")
-    [asm,prologue]=remove_prologue(assembly_source)
+    asm:      list[str]
+    prologue: list[str]
+
+    asm, prologue = remove_prologue(assembly_source)
 
     print("\tpass 1...")
     asm=pass_1(asm)
@@ -955,7 +956,7 @@ def main():
             "-o", args.output
         ])
 
-    print("...done ")
+    print("...done")
 
 if __name__ == "__main__":
     main()
