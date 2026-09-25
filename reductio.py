@@ -63,46 +63,43 @@ def decompose(term):
                             raise Exception 
     return (offset, base, index, scale)
 
-def load(s):
-    with open(s) as f:
-        asm = f.readlines()
-    return asm
-
 # aes becomes a 2gb file.  gnu assembler doesn't like that.
 # break it into pieces. 
 # (hence the 'globals' throughout this - 
 #  everything needs to be visible to linker)
 MAX_ASM_LINES = 100000
-def break_write(s, asm):
+def break_parts(asm):
+    file_parts = []
     i = 0
     c = 0
     while c < len(asm):
-        with open("%s%03d" % (s, i), 'w') as f:
-            f.write(".data\n") # super-hack - as will assume .text
-            for p, l in enumerate(asm[c:c+MAX_ASM_LINES]):
-                if p != 0 and ".balign" in l:
-                    # another hack.  this one was frustrating and cost hours
-                    # to track down.  the gas .align directive pads the
-                    # current location _and_ forces an alignment of the
-                    # entire section in the resulting object.  although this
-                    # makes sense in hindsight, it isn't documented, and
-                    # caused a lot of mysterious breaking (when a table not
-                    # containing an .align gets split across multiple
-                    # objects, and a subsequent .align causes padding to be
-                    # injected into the middle of the table to try to align
-                    # the entire section).  to "fix" - ensure the alignment
-                    # does not occur in the middle of an object.
-                    break
-                f.write(l)
-                c = c + 1
-            # assume global directives are always above their label
-            # (not a safe assumption)
-            # and keep directive and label together
-            if asm[c-1].startswith(".glob"):
-                f.write(asm[c])
-                c = c + 1
+        part = ""
+        part += ".data\n" # super-hack - as will assume .text
+        for p, l in enumerate(asm[c:c+MAX_ASM_LINES]):
+            if p != 0 and ".balign" in l:
+                # another hack.  this one was frustrating and cost hours
+                # to track down.  the gas .align directive pads the
+                # current location _and_ forces an alignment of the
+                # entire section in the resulting object.  although this
+                # makes sense in hindsight, it isn't documented, and
+                # caused a lot of mysterious breaking (when a table not
+                # containing an .align gets split across multiple
+                # objects, and a subsequent .align causes padding to be
+                # injected into the middle of the table to try to align
+                # the entire section).  to "fix" - ensure the alignment
+                # does not occur in the middle of an object.
+                break
+            part += l
+            c = c + 1
+        # assume global directives are always above their label
+        # (not a safe assumption)
+        # and keep directive and label together
+        if asm[c-1].startswith(".glob"):
+            part += asm[c]
+            c = c + 1
+        file_parts.append(part)
         i = i + 1
-    return ["%s%03d" % (s, k) for k in range(i)]
+    return file_parts
 
 def write(s, asm):
     with open(s, 'w') as f:
@@ -639,14 +636,14 @@ def reduce(s, prologue):
     # addresses in instruction stream
     # (see note on gnu as quirk later)
     # (semicolon hack ensures alignment and section directives don't get split
-    # across files by break_write)
+    # across files by break_parts)
     pasm.append(".section .data ; .balign 0x10000\n")
 
     # (hack) keep text starting locations consistent to ensure identical
     # addresses in instruction stream
     # (see note on gnu as quirk later)
     # (semicolon hack ensures alignment and section directives don't get split
-    # across files by break_write)
+    # across files by break_parts)
     pasm.append(".section .text ; .balign 0x10000\n")
 
     pasm.append("### prologue ###\n")
@@ -843,7 +840,7 @@ def reduce(s, prologue):
     # addresses in instruction stream
     # (see note on gnu as quirk later)
     # (semicolon hack ensures alignment and section directives don't get split
-    # across files by break_write)
+    # across files by break_parts)
     pasm.append(".section .data ; .balign 0x10000\n")
 
     # allow first chunk skip
@@ -882,11 +879,8 @@ def main():
 
     args = parser.parse_args()
 
-    e_file="a.out"
-    s_file=e_file+".s"
-
     print("compiling...")
-    subprocess.check_call([
+    assembly_source = subprocess.check_output([
         args.base / "movcc",
         # Include all source files
         *args.source,
@@ -897,51 +891,39 @@ def main():
         "-Wf--no-mov-extern",
         # Quiet output
         "-Wf--q",
-        "-o", s_file
-    ])
+        "-o", "/dev/stdout"
+    ]).decode().splitlines(keepends=True)
     print("...done")
 
     # reduce
     print("reducing... ")
 
-    print("\tloading... ")
-    asm=load(s_file)
+    print("\tprologue... ")
+    [asm,prologue]=remove_prologue(assembly_source)
 
-    sys.stdout.write("\tprologue... ")
-    [asm,prologue]=remove_prologue(asm)
-    sys.stdout.write("\n")
-
-    sys.stdout.write("\tpass 1...   ")
+    print("\tpass 1...")
     asm=pass_1(asm)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\tpass 2...   ")
+    print("\tpass 2...")
     asm=pass_2(asm)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\tpass 3...   ")
+    print("\tpass 3...")
     asm=pass_3(asm)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\tpass 4...   ")
+    print("\tpass 4...")
     asm=pass_4(asm)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\tpass 5...   ")
+    print("\tpass 5...")
     asm=pass_5(asm)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\tpass 6...   ")
+    print("\tpass 6...")
     asm=pass_6(asm)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\treduce...   ")
+    print("\treduce...")
     asm=reduce(asm, prologue)
-    sys.stdout.write("\n")
 
-    sys.stdout.write("\twrite...    ")
-    s_files=break_write(s_file, asm)
-    sys.stdout.write("\n")
+    print("\tsplitting...")
+    file_parts=break_parts(asm)
 
     with tempfile.TemporaryDirectory() as build_dir:
         build_path = pathlib.Path(build_dir)
@@ -949,14 +931,13 @@ def main():
         # assemble
         o_files = []
         print("\tassemble... ")
-        for index, file in enumerate(s_files):
+        for index, file in enumerate(file_parts):
             object_file = build_path / f"tmp{index:03d}.o"
             o_files.append(object_file)
-            subprocess.check_call(["as", "--32", file, "-o", object_file])
+            subprocess.run(["as", "--32", "-o", object_file], check=True, input=file, text=True)
 
         # link
-        sys.stdout.write("\tlink... ")
-        sys.stdout.flush()
+        print("\tlinking...")
         subprocess.check_call([
             "ld",
             "-melf_i386",
@@ -973,7 +954,6 @@ def main():
             *o_files,
             "-o", args.output
         ])
-        sys.stdout.write("\n")
 
     print("...done ")
 
